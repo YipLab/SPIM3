@@ -11,20 +11,20 @@ Excitation from the confocal microscope is redirected to a 45 degree angle towar
 ## Components
 
 ### Microscope
-IX71 Microscope Base
+IX71 Microscope Base  
 FV300
 
 ### Optics
 TL | Achromatic Doublet f = 150 mm ([AC254-150-A-ML](https://www.thorlabs.com/thorproduct.cfm?partnumber=AC254-150-A-ML))
 
 ### Objectives
-Obj1 | Olympus UMPLFLN10XW
+Obj1 | Olympus UMPLFLN10XW  
 Obj2 | Olympus UMPLFLN20XW
 
 ### Camera
 Cam | Photometrics Prime sCMOS
 
 ## TODO
-- Components
+- Filters
 - Folder for CAD
 - FOlder for software
