@@ -21,10 +21,16 @@ TL | Achromatic Doublet f = 150 mm ([AC254-150-A-ML](https://www.thorlabs.com/th
 Obj1 | Olympus UMPLFLN10XW  
 Obj2 | Olympus UMPLFLN20XW
 
+## Filters
+F1 | Close  
+F2 | BP650-700  
+F3 | BP560-620  
+F4 | BP545-580  
+F5 | Open  
+
 ### Camera
 Cam | Photometrics Prime sCMOS
 
 ## TODO
-- Filters
 - Folder for CAD
 - FOlder for software

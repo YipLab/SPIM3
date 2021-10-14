@@ -1,0 +1,225 @@
+//USED FOR ASI STEPPER MOTOR
+import java.lang.System;
+import ij.*;
+import org.micromanager.api.AcquisitionOptions;
+import org.micromanager.*;
+import org.micromanager.utils.ImageUtils;
+import ij.gui.GenericDialog;
+import java.text.SimpleDateFormat;
+import java.util.Calendar;
+import java.util.GregorianCalendar;
+import java.util.TimeZone;
+import java.lang.Math.*;
+import ij.gui.*;
+
+
+// file locations
+String acqName = "SPIM3_CACO2_GFP";
+String rootDirName = "X:";
+
+String comXYZStage = "COM4";
+String comRStage = null;
+String comTrig = "COM11";
+
+//Parameters
+int numFrames = 48; //Number of Timepoints
+int maxSlices = 100; //Number of Zslices
+double deltaZ = 0.001;// Z step in mm
+int nPos = 1; //Number of xyr positions
+String channelGroup = "Colours";
+String[] channels = {"Blue"}; //Channels
+Color[] colors = {Color.BLUE}; //Set the colour image
+int timeInterval = 20*60*1000; //ms
+
+//TODOs: Add check to make sure at least 1 channel in channels and length of channels and colors are the same. 
+//TODOs: Add total time to estimation + make variable to describe time between cycles
+ 
+//Variables
+int ESPwaitTime = 5;//ms
+int timeBetweenPos = 0;//ms
+int zSliceWaitTime = 50;//ms
+
+int currAcqPos =0;
+public double currXPos;
+public double currYPos;
+public double currZPos;
+public double currRPos;
+
+//MM Acq setup
+// clear all previous acquisitions
+gui.closeAllAcquisitions();
+gui.clearMessageWindow();
+
+//functions
+void connectStages(){
+	
+	mmc.loadDevice("comXYZ", "SerialManager", comXYZStage);
+	mmc.setProperty("comXYZ", "StopBits", "1");
+	mmc.setProperty("comXYZ", "Parity", "None");
+	mmc.setProperty("comXYZ", "BaudRate", "19200");
+	mmc.setProperty("comXYZ", "AnswerTimeout", "15000");
+	mmc.setProperty("comXYZ", "Handshaking", "Off");
+	mmc.initializeDevice("comXYZ");
+
+   mmc.sleep(ESPwaitTime);
+   
+	if (comRStage != null) { 
+		mmc.loadDevice("comR", "SerialManager", comRStage);
+		mmc.setProperty("comR", "StopBits", "1");
+		mmc.setProperty("comR", "Parity", "None");
+		mmc.setProperty("comR", "BaudRate", "19200");
+		mmc.setProperty("comR", "AnswerTimeout", "15000");
+		mmc.setProperty("comR", "Handshaking", "Off");
+		mmc.initializeDevice("comR");
+	}
+
+	if (comTrig != null) {
+		mmc.loadDevice("comT", "SerialManager", comTrig);
+		mmc.setProperty("comT", "StopBits", "1");
+		mmc.setProperty("comT", "Parity", "None");
+		mmc.setProperty("comT", "BaudRate", "9600");
+		mmc.setProperty("comT", "AnswerTimeout", "15000");
+		mmc.setProperty("comT", "Handshaking", "Off");
+		mmc.initializeDevice("comT");
+	}
+
+}
+
+void setStages(int currAcqPos){
+
+   xStageCmd = "1pa" + xPos[currAcqPos];
+	mmc.setSerialPortCommand("comXYZ", xStageCmd, "\r\n"); //ENABLE
+
+   yStageCmd = "2pa" + yPos[currAcqPos];
+	mmc.setSerialPortCommand("comXYZ", yStageCmd, "\r\n"); //ENABLE
+	
+	zStageCmd = "3pa" + zLow[currAcqPos];
+	mmc.setSerialPortCommand("comXYZ", zStageCmd, "\r\n"); //ENABLE
+	
+	if (comRStage != null) { 
+		rStageCmd = "2pa" + rPos[currAcqPos];
+		mmc.setSerialPortCommand("comR", rStageCmd, "\r\n"); //ENABLE
+	}
+	
+}
+
+void setZStage(int currAcqPos, int currZSlice, double deltaZ){
+
+	currZ = zLow[currAcqPos] + currZSlice*deltaZ;
+	print("currZ " + currZ);
+	zStageCmd = "3pa" + currZ;
+	mmc.setSerialPortCommand("comXYZ", zStageCmd, "\r\n"); //ENABLE
+
+}
+
+void waitStages(){
+	String ans = "0";
+	while(ans.equals("0")) {
+		mmc.setSerialPortCommand("comXYZ", "1MD?", "\r\n");
+		ans = mmc.getSerialPortAnswer("comXYZ", "\r\n");
+	}
+	ans = "0";
+	while(ans == "0") {
+		mmc.setSerialPortCommand("comXYZ", "2MD?", "\r\n");
+		ans = mmc.getSerialPortAnswer("comXYZ", "\r\n");
+	}
+	ans = "0";
+	while(ans.equals("0")) {
+		mmc.setSerialPortCommand("comXYZ", "3MD?", "\r\n");
+		ans = mmc.getSerialPortAnswer("comXYZ", "\r\n");
+	}
+	if (comRStage != null) {
+		ans = "0";
+		while(ans.equals("0")) {
+			mmc.setSerialPortCommand("comR", "2MD?", "\r\n");
+			ans = mmc.getSerialPortAnswer("comR", "\r\n");
+		}
+	}
+}
+
+ public void checkPosList(int currAcqPos) {
+    print (" "); 
+    print ("Current coordinates:");
+    print (" "); 
+    print ("int[] zHigh= {" + zHigh[currAcqPos] + "};"); 
+    print ("int[] zLow= {" + zLow[currAcqPos] + "};"); 
+    print ("int[] yPos= {"+   yPos[currAcqPos] +"};"); 
+    print ("int[] xPos= {"+  xPos[currAcqPos] +"};"); 
+    print ("int[] rPos= {"+  rPos[currAcqPos] +"};"); 
+  }
+
+ boolean checkTrig(){
+	mmc.setSerialPortCommand("comT", "3", "\r\n"); //Ask for status
+	mmc.sleep(ESPwaitTime);
+	ans = mmc.getSerialPortAnswer("comT", "\r\n");
+	return ans == "FA";
+}
+
+/////////////// MAIN SCRIPT /////////////////
+print("Connecting stages");
+connectStages();	
+
+//MDA based script (i = currframe, k = currPos, z = currZ, j= currChannel
+// create acquisition and set options
+gui.openAcquisition(acqName, rootDirName, numFrames, channels.length, maxSlices, nPos, true, true);
+if (channels.length > 1) {
+	for (int i=0; i<colors.length; i++) {
+   	gui.setChannelColor(acqName, i, colors[i]);
+   	gui.setChannelName(acqName, i, channels[i]);
+	}
+} else {
+	gui.setChannelName(acqName, 0, channels[0]);
+}
+
+int nSlices =0;
+for (int currFrame=0; currFrame<numFrames; currFrame++) { //For each timepoint	
+	long startTime = System.currentTimeMillis();
+	for (int currAcqPos=0; currAcqPos<nPos; currAcqPos++){ //For each xyr position
+		checkPosList(currAcqPos);
+		setStages(currAcqPos);
+		waitStages();
+		mmc.sleep(2000);
+		double nSlices_Unrounded = Math.abs(Math.abs(zHigh[currAcqPos])-Math.abs(zLow[currAcqPos]))/deltaZ;
+		int nSlices = Math.round(nSlices_Unrounded);
+		//print("NSlices " + nSlices);
+		mmc.sleep(timeBetweenPos);
+		for (int currZ=0; currZ<nSlices; currZ++){ //For each Z slice
+			setZStage(currAcqPos, currZ, deltaZ);
+			mmc.sleep(zSliceWaitTime);
+	   	waitStages();
+	   	mmc.sleep(500);
+	   	mmc.sleep(500); //Settle time
+	   	for (int currChannel=0; currChannel<channels.length; currChannel++) { //For each channel
+				mmc.setConfig(channelGroup, channels[currChannel]);
+	   		mmc.waitForConfig(channelGroup, channels[currChannel]);
+	   		mmc.setSerialPortCommand("comT", "0", "\r\n"); //Trigger
+				mmc.sleep(ESPwaitTime);
+				ans = mmc.getSerialPortAnswer("comT", "\r\n");	//ENSURE FRAME ACTIVE
+				print(ans);
+				mmc.sleep(500);
+		    	gui.snapAndAddImage(acqName, currFrame, currChannel, currZ, currAcqPos);
+		    	mmc.sleep(ESPwaitTime);
+		    	ans = mmc.getSerialPortAnswer("comT", "\r\n"); //ENSURE NOT FRAME ACTIVE
+		    	print(ans);
+		    	mmc.sleep(2500); //Wait for system to reset
+		   }// loop channels
+		}//loop z slice
+	}//loop positions
+	if (currFrame+1 < numFrames) {
+		long timeBetweenFrames = timeInterval - (System.currentTimeMillis() - startTime);
+		if (timeBetweenFrames < 0) { timeBetweenFrames = 0;}
+		print("Next time frame in: (sec)");
+		print(timeBetweenFrames/1000);
+		mmc.sleep(timeBetweenFrames);
+	}
+}//loop frames
+
+if (comRStage != null) { 
+	mmc.unloadDevice("comR");
+}
+if (comTrig != null) {
+	mmc.unloadDevice("comT");
+}
+mmc.unloadDevice("comXYZ");	
+print("I'm all done!");
+
