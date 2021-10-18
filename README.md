@@ -1,6 +1,6 @@
 # SPIM3
 
-Inverted lighsheet microscope built ontop of a confocal microscope base. Converting the confocal illumination into a lightsheet configuration, taking advantage of exisitng laser lines and scanning systems. System was designed to slide into an IX71 microscope base.
+Inverted lighsheet microscope built ontop of a confocal microscope base. Converting the confocal illumination into a lightsheet configuration, taking advantage of existing laser lines and scanning systems. System was designed to slide into an IX71 microscope base.
 
 
 ![System Schematic](/images/schematic.png)
